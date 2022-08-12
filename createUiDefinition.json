@@ -1,0 +1,58 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+      "basics": [{}],
+      "steps": [
+        {
+          "name": "datashareConfig",
+          "label": "Extract Data Share settings",
+          "subLabel": {
+            "preValidation": "Configure the Data Share settings for Extract",
+            "postValidation": "Done"
+          },
+          "bladeTitle": "Extract Data Share settings",
+          "elements": [
+            {
+              "name": "datashareRoot",
+              "type": "Microsoft.Common.TextBox",
+              "label": "Root String for the Data Share",
+              "toolTip": "Use only allowed characters",
+              "constraints": {
+                "required": true,
+                "validations": [
+                  {
+                    "regex": "^[a-z0-9A-Z]{5,10}$",
+                    "message": "Only alphanumeric characters are allowed, and the value must be between 5 and 10 characters long."
+                  }
+                ]
+              },
+              "visible": true
+            },
+            {
+              "name": "emailAddress",
+              "type": "Microsoft.Common.TextBox",
+              "label": "Email Address for Sharing Invite",
+              "toolTip": "Must be a valid email address",
+              "constraints": {
+                "required": true,
+                "validations": [
+                  {
+                    "regex": "^([\\w\\.\\-]+)@([\\w\\-]+)((\\.(\\w){2,3})+)$",
+                    "message": "Must be a valid email address."
+                  }
+                ]
+              },
+              "visible": true
+            }
+          ]
+        }
+      ],
+      "outputs": {
+        "datashareroot": "[steps('datashareConfig').datashareRoot]",
+        "invite": "[steps('datashareConfig').emailAddress]",
+        "location": "[location()]"
+      }
+    }
+  }

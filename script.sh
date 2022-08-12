@@ -1,0 +1,1 @@
+az deployment group create --resource-group dsdemo --template-file mainTemplate.json --parameters @parameters.json --debug

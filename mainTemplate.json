@@ -1,0 +1,374 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "datashareroot": {
+      "type": "String"
+    },
+    "datashare_share_description": {
+      "defaultValue": "Sharing Laughs and Sharing Data!",
+      "type": "String"
+    },
+    "datashare_share_terms": {
+      "defaultValue": "No Terms, Just Good Vibes",
+      "type": "String"
+    },
+    "invite": {
+      "type": "String"
+    },
+    "role_name": {
+      "type": "String",
+      "defaultValue": "[newGuid()]"
+    },
+    "location": {
+        "type": "string"
+      }
+  },
+  "variables": {
+    "uniquestring": "[toLower(substring(uniqueString(parameters('datashareroot')),0,3))]",
+    "root": "[toLower(substring(padLeft(parameters('datashareroot'),8,'o'),0,8))]",
+    "datashare_name": "[concat(variables('root'), 'datashareact', variables('uniquestring'))]",
+    "datashare_share_name": "[concat(variables('root'), 'share', variables('uniquestring'))]",
+    "datashare_share_dataset_name": "[concat(variables('root'), 'dataset', variables('uniquestring'))]",
+    "shared_storage_account": "[concat(variables('root'), 'sourcestor', variables('uniquestring'))]",
+    "shared_storage_container": "[concat(variables('root'), 'dataset', variables('uniquestring'))]",
+    "networkInterfaceName": "[concat(variables('root'), 'nic', variables('uniquestring'))]",
+    "virtualNetworkName": "[concat(variables('root'), 'vnet', variables('uniquestring'))]",
+    "subnetName": "[concat(variables('root'), 'subnet', variables('uniquestring'))]",
+    "publicIPAddressName": "[concat(variables('root'), 'publicip', variables('uniquestring'))]",
+    "dnsLabelPrefix": "[concat(variables('root'), 'dns', variables('uniquestring'))]",
+    "vmName": "[concat(variables('root'), 'vm', variables('uniquestring'))]",
+    "applicationInsightsName": "[concat(variables('root'), 'insights', variables('uniquestring'))]",
+    "hostingPlanName": "[concat(variables('root'), 'func', variables('uniquestring'))]",
+    "functionAppName": "[concat(variables('root'), 'func', variables('uniquestring'))]",
+    "networkSecurityGroupName": "[concat(variables('root'), 'nsg', variables('uniquestring'))]",
+    "role_name": "[parameters('role_name')]",
+    "osDiskType": "Standard_LRS",
+    "subnetAddressPrefix": "10.1.0.0/24",
+    "addressPrefix": "10.1.0.0/16",
+    "adminUsername":"managedapp",
+    "adminPassword":"M@naged@pp123"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('hostingPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {}
+    },
+{"type": "Microsoft.Web/sites",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('shared_storage_account'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('shared_storage_account')), '2021-08-01').keys[0].value)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('shared_storage_account'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('shared_storage_account')), '2021-08-01').keys[0].value)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTSHARE",
+              "value": "[toLower(variables('functionAppName'))]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~2"
+            },
+            {
+              "name": "WEBSITE_NODE_DEFAULT_VERSION",
+              "value": "~10"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "node"
+            }
+          ],
+          "ftpsState": "FtpsOnly",
+          "minTlsVersion": "1.2"
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('shared_storage_account'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('applicationInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "Request_Source": "rest"
+      }
+    },
+
+
+
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('networkInterfaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('networkSecurityGroupName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "SSH",
+            "properties": {
+              "priority": 1000,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "22"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "apiVersion": "2021-05-01",
+      "name": "[format('{0}/{1}', variables('virtualNetworkName'), variables('subnetName'))]",
+      "properties": {
+        "addressPrefix": "[variables('subnetAddressPrefix')]",
+        "privateEndpointNetworkPolicies": "Enabled",
+        "privateLinkServiceNetworkPolicies": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "publicIPAddressVersion": "IPv4",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dnsLabelPrefix')]"
+        },
+        "idleTimeoutInMinutes": 4
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('vmName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B2s"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "18.04-LTS",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[variables('adminUsername')]",
+          "adminPassword": "[variables('adminPassword')]",
+          "linuxConfiguration": "[null()]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+      ]
+    },
+  
+
+
+
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-04-01",
+      "name": "[variables('shared_storage_account')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2021-04-01",
+      "name": "[format('{0}/default/{1}', variables('shared_storage_account'), variables('shared_storage_container'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('shared_storage_account'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DataShare/accounts",
+      "apiVersion": "2021-08-01",
+      "name": "[variables('datashare_name')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[variables('role_name')]",
+      "scope": "[concat('Microsoft.Storage/storageAccounts/',variables('shared_storage_account'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DataShare/accounts', variables('datashare_name'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('shared_storage_account'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]",
+        "principalType": "ServicePrincipal",
+        "principalId": "[reference(resourceId('Microsoft.DataShare/accounts', variables('datashare_name')), '2021-08-01', 'full').identity.principalId]"
+      }
+    },
+    {
+      "type": "Microsoft.DataShare/accounts/shares",
+      "apiVersion": "2021-08-01",
+      "name": "[concat(variables('datashare_name'), '/', variables('datashare_share_name'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DataShare/accounts', variables('datashare_name'))]"
+      ],
+      "properties": {
+        "description": "[parameters('datashare_share_description')]",
+        "terms": "[parameters('datashare_share_terms')]",
+        "shareKind": "CopyBased"
+      }
+    },
+    {
+      "type": "Microsoft.DataShare/accounts/shares/dataSets",
+      "apiVersion": "2021-08-01",
+      "name": "[concat(variables('datashare_name'), '/', variables('datashare_share_name'), '/', variables('datashare_share_dataset_name'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DataShare/accounts/shares', variables('datashare_name'), variables('datashare_share_name'))]",
+        "[resourceId('Microsoft.DataShare/accounts', variables('datashare_name'))]"
+      ],
+      "kind": "Container",
+      "properties": {
+        "containerName": "[variables('shared_storage_container')]",
+        "subscriptionId": "[subscription().subscriptionId]",
+        "resourceGroup": "[resourceGroup().name]",
+        "storageAccountName": "[variables('shared_storage_account')]"
+      }
+    },
+    {
+      "type": "Microsoft.DataShare/accounts/shares/invitations",
+      "apiVersion": "2021-08-01",
+      "name": "[concat(variables('datashare_name'), '/', variables('datashare_share_name'), '/', variables('datashare_share_dataset_name'),'invitations', uniqueString('emai'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DataShare/accounts/shares', variables('datashare_name'), variables('datashare_share_name'))]",
+        "[resourceId('Microsoft.DataShare/accounts', variables('datashare_name'))]"
+      ],
+      "properties": {
+        "targetEmail": "[parameters('invite')]",
+        "expirationDate": "2025-01-02T04:59:00Z"
+      }
+    },
+    {
+      "type": "Microsoft.DataShare/accounts/shares/synchronizationSettings",
+      "apiVersion": "2021-08-01",
+      "name": "[concat(variables('datashare_name'), '/', variables('datashare_share_name'), '/', variables('datashare_share_dataset_name'), '_synchronizationSetting')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DataShare/accounts/shares', variables('datashare_name'), variables('datashare_share_name'))]",
+        "[resourceId('Microsoft.DataShare/accounts', variables('datashare_name'))]"
+      ],
+      "kind": "ScheduleBased",
+      "properties": {
+        "recurrenceInterval": "Hour",
+        "synchronizationTime": "2022-07-21T20:11:39Z"
+      }
+    }
+  ]
+}
