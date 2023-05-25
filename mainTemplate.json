@@ -21,8 +21,8 @@
       "defaultValue": "[newGuid()]"
     },
     "location": {
-        "type": "string"
-      }
+      "type": "string"
+    }
   },
   "variables": {
     "uniquestring": "[toLower(substring(uniqueString(parameters('datashareroot')),0,3))]",
@@ -30,7 +30,7 @@
     "datashare_name": "[concat(variables('root'), 'datashareact', variables('uniquestring'))]",
     "datashare_share_name": "[concat(variables('root'), 'share', variables('uniquestring'))]",
     "datashare_share_dataset_name": "[concat(variables('root'), 'dataset', variables('uniquestring'))]",
-    "shared_storage_account": "[concat(variables('root'), 'sourcestor', variables('uniquestring'))]",
+    "shared_storage_account": "[concat(variables('root'), 'stor', variables('uniquestring'))]",
     "shared_storage_container": "[concat(variables('root'), 'dataset', variables('uniquestring'))]",
     "networkInterfaceName": "[concat(variables('root'), 'nic', variables('uniquestring'))]",
     "virtualNetworkName": "[concat(variables('root'), 'vnet', variables('uniquestring'))]",
@@ -46,8 +46,8 @@
     "osDiskType": "Standard_LRS",
     "subnetAddressPrefix": "10.1.0.0/24",
     "addressPrefix": "10.1.0.0/16",
-    "adminUsername":"managedapp",
-    "adminPassword":"M@naged@pp123"
+    "adminUsername": "managedapp",
+    "adminPassword": "M@naged@pp123"
   },
   "resources": [
     {
@@ -61,7 +61,8 @@
       },
       "properties": {}
     },
-{"type": "Microsoft.Web/sites",
+    {
+      "type": "Microsoft.Web/sites",
       "apiVersion": "2021-03-01",
       "name": "[variables('functionAppName')]",
       "location": "[parameters('location')]",
@@ -125,8 +126,6 @@
       }
     },
 
-
-
     {
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "2021-05-01",
@@ -187,9 +186,7 @@
       "location": "[parameters('location')]",
       "properties": {
         "addressSpace": {
-          "addressPrefixes": [
-            "[variables('addressPrefix')]"
-          ]
+          "addressPrefixes": ["[variables('addressPrefix')]"]
         }
       }
     },
@@ -264,9 +261,6 @@
         "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
       ]
     },
-  
-
-
 
     {
       "type": "Microsoft.Storage/storageAccounts",
